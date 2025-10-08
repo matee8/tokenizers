@@ -195,6 +195,39 @@ impl UnigramTrainer {
             .map(|c| c.to_string())
             .collect()
     }
+
+    fn score_provided_corpus(
+        &self,
+        corpus: &[String],
+        sentences: &[Sentence],
+    ) -> Vec<SentencePiece> {
+        let mut seed_scores: AHashMap<&str, f64> =
+            corpus.iter().map(|token| (token.as_str(), 0.0)).collect();
+
+        if seed_scores.is_empty() {
+            return vec![];
+        }
+
+        for (sentence, count) in sentences.iter() {
+            for token in corpus.iter() {
+                let occurrences = sentence.matches(token).count() as f64;
+                if occurrences > 0.0 {
+                    if let Some(score) = seed_scores.get_mut(token.as_str()) {
+                        *score += occurrences * (*count as f64)
+                    }
+                }
+            }
+        }
+
+        let scored_pieces: Vec<SentencePiece> = seed_scores
+            .into_iter()
+            .filter(|(_, score)| *score > 0.0)
+            .map(|(token, score)| (token.to_owned(), score))
+            .collect();
+
+        scored_pieces
+    }
+
     fn make_seed_sentence_pieces(
         &self,
         sentences: &[Sentence],
