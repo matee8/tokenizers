@@ -60,7 +60,7 @@ pub struct UnigramTrainer {
     #[builder(default = "AHashSet::new()")]
     pub initial_alphabet: AHashSet<char>,
     #[builder(default = "None")]
-    pub seed_corpus: Option<Vec<SentencePiece>>,
+    pub seed_corpus: Option<Vec<String>>,
 
     #[builder(default = "None")]
     pub unk_token: Option<String>,
