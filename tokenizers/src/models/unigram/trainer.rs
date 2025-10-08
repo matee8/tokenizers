@@ -306,7 +306,6 @@ impl UnigramTrainer {
                 break;
             }
         }
-        to_log_prob(&mut seed_sentencepieces);
         seed_sentencepieces
     }
     fn prune_sentence_pieces(
