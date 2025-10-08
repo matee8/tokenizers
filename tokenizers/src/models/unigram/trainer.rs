@@ -59,6 +59,8 @@ pub struct UnigramTrainer {
     pub special_tokens: Vec<AddedToken>,
     #[builder(default = "AHashSet::new()")]
     pub initial_alphabet: AHashSet<char>,
+    #[builder(default = "None")]
+    pub seed_corpus: Option<Vec<SentencePiece>>,
 
     #[builder(default = "None")]
     pub unk_token: Option<String>,
