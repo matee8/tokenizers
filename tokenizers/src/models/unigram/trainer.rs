@@ -576,7 +576,15 @@ impl UnigramTrainer {
 
         // We use a UNK token when training, whatever the `self.unk_token`
         pieces.push(("<UNK>".into(), f64::NAN));
-        pieces.extend(self.make_seed_sentence_pieces(&sentences, &progress));
+        let mut seed_pieces = if let Some(corpus) = &self.seed_corpus {
+            self.score_provided_corpus(corpus, &sentences)
+        } else {
+            self.make_seed_sentence_pieces(&sentences, &progress)
+        };
+
+        to_log_prob(&mut seed_pieces);
+        pieces.extend(seed_pieces);
+
         self.finalize_progress(&progress, sentences.len());
 
         // Useful to check compatibility with spm.
