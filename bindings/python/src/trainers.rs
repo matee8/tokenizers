@@ -749,6 +749,12 @@ impl PyWordLevelTrainer {
 ///     n_sub_iterations (:obj:`int`):
 ///         The number of iterations of the EM algorithm to perform before
 ///         pruning the vocabulary.
+///
+///     seed_corpus (:obj:`list[str]`, `optional`):
+///         A list of tokens to be used as the initial seed vocabulary.
+///         Scores will be computed for these tokens against the training
+///         corpus.
+///         If not provided, the seed vocabulary is generated automatically.
 #[pyclass(extends=PyTrainer, module = "tokenizers.trainers", name = "UnigramTrainer")]
 pub struct PyUnigramTrainer {}
 #[pymethods]
@@ -832,7 +838,7 @@ impl PyUnigramTrainer {
     #[new]
     #[pyo3(
         signature = (**kwargs),
-        text_signature = "(self, vocab_size=8000, show_progress=True, special_tokens=[], initial_alphabet=[], shrinking_factor=0.75, unk_token=None, max_piece_length=16, n_sub_iterations=2)"
+        text_signature = "(self, vocab_size=8000, show_progress=True, special_tokens=[], initial_alphabet=[], shrinking_factor=0.75, unk_token=None, max_piece_length=16, n_sub_iterations=2, seed_corpus=None)"
     )]
     pub fn new(kwargs: Option<Bound<'_, PyDict>>) -> PyResult<(Self, PyTrainer)> {
         let mut builder = tk::models::unigram::UnigramTrainer::builder();
@@ -875,6 +881,7 @@ impl PyUnigramTrainer {
                             })
                             .collect::<PyResult<Vec<_>>>()?,
                     ),
+                    "seed_corpus" => builder.seed_corpus(Some(val.extract()?)),
                     _ => {
                         println!("Ignored unknown kwargs option {key}");
                         &mut builder
