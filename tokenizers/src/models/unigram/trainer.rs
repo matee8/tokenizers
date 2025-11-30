@@ -200,6 +200,7 @@ impl UnigramTrainer {
         &self,
         corpus: &[String],
         sentences: &[Sentence],
+        progress: &Option<ProgressBar>,
     ) -> Vec<SentencePiece> {
         let mut seed_scores: AHashMap<&str, f64> =
             corpus.iter().map(|token| (token.as_str(), 0.0)).collect();
@@ -209,6 +210,9 @@ impl UnigramTrainer {
         }
 
         for (sentence, count) in sentences.iter() {
+            if let Some(p) = progress {
+                p.inc(1);
+            }
             for token in corpus.iter() {
                 let occurrences = sentence.matches(token).count() as f64;
                 if occurrences > 0.0 {
@@ -576,7 +580,7 @@ impl UnigramTrainer {
         // We use a UNK token when training, whatever the `self.unk_token`
         pieces.push(("<UNK>".into(), f64::NAN));
         let mut seed_pieces = if let Some(corpus) = &self.seed_corpus {
-            self.score_provided_corpus(corpus, &sentences)
+            self.score_provided_corpus(corpus, &sentences, &progress)
         } else {
             self.make_seed_sentence_pieces(&sentences, &progress)
         };
