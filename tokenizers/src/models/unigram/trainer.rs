@@ -3,6 +3,7 @@ use crate::tokenizer::{AddedToken, Result, Trainer};
 use crate::utils::parallelism::*;
 use crate::utils::progress::{ProgressBar, ProgressStyle};
 use ahash::{AHashMap, AHashSet};
+use aho_corasick::AhoCorasick;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
@@ -201,35 +202,45 @@ impl UnigramTrainer {
         corpus: &[String],
         sentences: &[Sentence],
         progress: &Option<ProgressBar>,
-    ) -> Vec<SentencePiece> {
-        let mut seed_scores: AHashMap<&str, f64> =
-            corpus.iter().map(|token| (token.as_str(), 0.0)).collect();
-
-        if seed_scores.is_empty() {
-            return vec![];
+    ) -> Result<Vec<SentencePiece>> {
+        if corpus.is_empty() {
+            return Ok(vec![]);
         }
 
-        for (sentence, count) in sentences.iter() {
-            if let Some(p) = progress {
-                p.inc(1);
-            }
-            for token in corpus.iter() {
-                let occurrences = sentence.matches(token).count() as f64;
-                if occurrences > 0.0 {
-                    if let Some(score) = seed_scores.get_mut(token.as_str()) {
-                        *score += occurrences * (*count as f64)
+        let ac = AhoCorasick::new(corpus)?;
+        let chunk_size = std::cmp::max(sentences.len() / current_num_threads(), 1);
+
+        let global_counts = sentences
+            .maybe_par_chunks(chunk_size)
+            .map(|chunk| {
+                let mut local_counts = vec![0.0; corpus.len()];
+                for (sentence, count) in chunk {
+                    if let Some(p) = progress {
+                        p.inc(1);
+                    }
+                    for mat in ac.find_overlapping_iter(sentence) {
+                        local_counts[mat.pattern().as_usize()] += *count as f64;
                     }
                 }
-            }
-        }
 
-        let scored_pieces: Vec<SentencePiece> = seed_scores
-            .into_iter()
+                local_counts
+            })
+            .reduce(
+                || vec![0.0; corpus.len()],
+                |mut a, b| {
+                    for (x, y) in a.iter_mut().zip(b.iter()) {
+                        *x += y;
+                    }
+                    a
+                },
+            );
+
+        Ok(corpus
+            .iter()
+            .zip(global_counts)
             .filter(|(_, score)| *score > 0.0)
             .map(|(token, score)| (token.to_owned(), score))
-            .collect();
-
-        scored_pieces
+            .collect())
     }
 
     fn make_seed_sentence_pieces(
@@ -580,7 +591,7 @@ impl UnigramTrainer {
         // We use a UNK token when training, whatever the `self.unk_token`
         pieces.push(("<UNK>".into(), f64::NAN));
         let mut seed_pieces = if let Some(corpus) = &self.seed_corpus {
-            self.score_provided_corpus(corpus, &sentences, &progress)
+            self.score_provided_corpus(corpus, &sentences, &progress)?
         } else {
             self.make_seed_sentence_pieces(&sentences, &progress)
         };
